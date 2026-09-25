@@ -339,6 +339,28 @@ M.goTo = function(pattern_or_finder, reverse)
     end
 end
 
+--- Check if cursor is in code block using treesitter or lua regex if not available
+---@param row number Row of cursor to check with
+---@return boolean
+local function is_row_code_block(row)
+    local node = vim.treesitter.get_node({ pos={(row - 1), 0}, bufnr=vim.api.nvim_get_current_buf() })
+
+    if not node then
+        if string.find(vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1], '^```') then
+            return true
+        end
+        return false
+    end
+
+    while node do
+        if node:type() == 'fenced_code_block' then
+            return true
+        end
+        node = node:parent()
+    end
+    return false
+end
+
 --- Jump to a heading matching the given anchor text, or to the next/previous heading
 ---@param anchor_text? string The anchor link text to match (e.g., "#my-heading"); if nil, jumps to next heading
 ---@param reverse? boolean If true, search backward
@@ -357,15 +379,11 @@ local go_to_heading = function(anchor_text, reverse, level)
     local in_fenced_code_block = utils.cursorInCodeBlock(starting_row, reverse)
     local row = (reverse and starting_row - 1) or starting_row + 1
     while continue do
-        local line = (reverse and vim.api.nvim_buf_get_lines(0, row - 1, row, false))
-            or vim.api.nvim_buf_get_lines(0, row - 1, row, false)
+        local line = vim.api.nvim_buf_get_lines(0, row - 1, row, false)
         -- If the line has contents, do the thing
         if line[1] then
             -- Are we in a code block?
-            if string.find(line[1], '^```') then
-                -- Flip the truth value
-                in_fenced_code_block = not in_fenced_code_block
-            end
+            in_fenced_code_block = is_row_code_block(row)
             -- Does the line start with a hash?
             local has_heading = string.find(line[1], '^#')
             if has_heading and not in_fenced_code_block then
@@ -397,7 +415,7 @@ local go_to_heading = function(anchor_text, reverse, level)
             end
             row = (reverse and row - 1) or row + 1
             if row == starting_row + 1 then
-                continue = nil
+                continue = false
                 if anchor_text == nil then
                     if not silent then
                         vim.notify("⬇️  Couldn't find a heading to go to!", vim.log.levels.WARN)
@@ -417,7 +435,7 @@ local go_to_heading = function(anchor_text, reverse, level)
                 row = (reverse and vim.api.nvim_buf_line_count(0)) or 1
                 in_fenced_code_block = false
             else
-                continue = nil
+                continue = false
                 local place = (reverse and 'beginning') or 'end'
                 local preposition = (reverse and 'after') or 'before'
                 if not silent then
