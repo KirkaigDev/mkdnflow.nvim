@@ -343,7 +343,7 @@ end
 ---@param row number Row of cursor to check with
 ---@return boolean
 local function is_row_code_block(row)
-    local node = vim.treesitter.get_node({ pos={(row - 1), 0}, bufnr=vim.api.nvim_get_current_buf() })
+    local _, node = pcall(vim.treesitter.get_node, { pos={(row - 1), 0}, bufnr=vim.api.nvim_get_current_buf() })
 
     if not node then
         if string.find(vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1], '^```') then
