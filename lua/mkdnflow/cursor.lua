@@ -341,15 +341,16 @@ end
 
 --- Check if cursor is in code block using treesitter or lua regex if not available
 ---@param row number Row of cursor to check with
+---@param current_value boolean Current value so that regex can flip it
 ---@return boolean
-local function is_row_code_block(row)
+local function is_row_code_block(row, current_value)
     local _, node = pcall(vim.treesitter.get_node, { pos={(row - 1), 0}, bufnr=vim.api.nvim_get_current_buf() })
 
     if not node then
         if string.find(vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1], '^```') then
-            return true
+            return not current_value
         end
-        return false
+        return current_value
     end
 
     while node do
@@ -383,7 +384,7 @@ local go_to_heading = function(anchor_text, reverse, level)
         -- If the line has contents, do the thing
         if line[1] then
             -- Are we in a code block?
-            in_fenced_code_block = is_row_code_block(row)
+            in_fenced_code_block = is_row_code_block(row, in_fenced_code_block)
             -- Does the line start with a hash?
             local has_heading = string.find(line[1], '^#')
             if has_heading and not in_fenced_code_block then
